@@ -1514,15 +1514,19 @@
 
           // 合算：幾何平均で「一番弱いパーツに引っ張られる」形にする。
           // 各パーツに少し下駄（+0.15）を履かせ、1パーツの測り間違いで崩壊させない。
+          // 算術平均も同じ重みで並行して計算し、最後に総点を両者の半々にする
+          // （幾何平均だけだと、パーツ別の中身より総点が低く見えすぎるため）。
           var OFFSET = 0.15;
-          var logSum = 0, wSum = 0;
+          var logSum = 0, arithSum = 0, wSum = 0;
           order.forEach(function (o) {
-            // 目は小さいパーツなので、幾何平均で全体を引っ張る重みは半分にする
+            // 目は小さいパーツなので、平均で全体を引っ張る重みは半分にする
             var wgt = (o[0] === "eyeL" || o[0] === "eyeR") ? 0.5 : 1;
             logSum += wgt * Math.log(rawMap[o[0]] + OFFSET);
+            arithSum += wgt * rawMap[o[0]];
             wSum += wgt;
           });
           var geo = Math.exp(logSum / wSum) - OFFSET;
+          var arith = arithSum / wSum;
 
           // 顔と目・口が描けていない絵（紫ベタ塗りなど）は確実に落とす
           var featureAvg = (eyeL + eyeR + mouth) / 3;
@@ -1554,6 +1558,12 @@
           var precAll = drawnFilled ? drawnHit / drawnFilled : 0;
           var iou = (cover + precAll) > 0 ? 2 * cover * precAll / (cover + precAll) : 0;
           score = Math.round(score * (0.35 + 0.65 * iou));
+
+          // 総点は、幾何平均ベースの点と、パーツの算術平均の半々にする。
+          // 算術平均側にも顔・目・口の関門（detailGate）を効かせるので、
+          // 顔なし・ベタ塗りの絵が0点になることは変わらない。
+          // 弱いパーツへの上限（cap）も、ブレンド後の点に効かせ直す。
+          score = Math.max(0, Math.min(cap, Math.round((score + arith * detailGate * 100) / 2)));
 
           var hint = buildHint({
             face: faceInfo.faceFound, feats: feats, faceScore: faceScore, faceSizeRatio: faceSizeRatio,
