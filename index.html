@@ -1,0 +1,1871 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>『紫のうさぎ』おえかき再現度ゲーム</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet" />
+    <style>
+      button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2rem; }
+
+      :root {
+        --bg: #f3f0fa;
+        --surface: #ffffff;
+        --surface-2: #ece7f7;
+        --ink: #241b33;
+        --ink-soft: #5d5470;
+        --line: #d9d2ea;
+        --accent: #7b2fdb;
+        --accent-ink: #ffffff;
+        --accent-soft: #ede4fc;
+        --good: #1d9e6c;
+        --mid: #d99a16;
+        --bad: #d9534f;
+        --paper: #fffef9;
+        --shadow: 0 2px 10px rgba(43, 22, 84, .10);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #17131f;
+          --surface: #221c30;
+          --surface-2: #2b2340;
+          --ink: #f0ebfa;
+          --ink-soft: #b3a9cc;
+          --line: #3d3358;
+          --accent: #a76bf0;
+          --accent-ink: #1c1030;
+          --accent-soft: #322550;
+          --shadow: 0 2px 10px rgba(0, 0, 0, .35);
+        }
+      }
+
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Hiragino Sans", system-ui, sans-serif;
+        line-height: 1.6;
+        /* キャンバス以外ではピンチ拡大・ダブルタップ拡大をさせない（キャンバス側は touch-action: none で自前処理） */
+        touch-action: pan-y;
+      }
+      main {
+        max-width: 560px;
+        margin: 0 auto;
+        padding: 20px 16px 48px;
+      }
+      h1 {
+        font-size: 1.45rem;
+        font-weight: 800;
+        margin: 4px 0 2px;
+        letter-spacing: .02em;
+      }
+      .lead {
+        color: var(--ink-soft);
+        font-size: .92rem;
+        margin: 0 0 16px;
+      }
+
+      .theme {
+        background: var(--accent);
+        color: #fff;
+        border-radius: 14px;
+        padding: 14px 16px;
+        margin-bottom: 14px;
+        box-shadow: var(--shadow);
+      }
+      .theme .theme-label {
+        font-size: .78rem;
+        font-weight: 700;
+        opacity: .85;
+        margin: 0;
+      }
+      .theme .theme-text {
+        font-size: 1.25rem;
+        font-weight: 800;
+        margin: 2px 0 0;
+        line-height: 1.45;
+      }
+      .theme .theme-note {
+        font-size: .85rem;
+        margin: 4px 0 0;
+        opacity: .92;
+      }
+
+      .canvas-wrap {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 4 / 5;
+        background: var(--paper);
+        border: 2px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+        touch-action: none;
+      }
+      .canvas-wrap canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      #drawCanvas { cursor: crosshair; touch-action: none; }
+      .canvas-zoom {
+        position: absolute;
+        inset: 0;
+        transform-origin: 0 0;
+      }
+      .canvas-wrap.panning #drawCanvas { cursor: grab; }
+
+      .zoom-bar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .zoom-bar .zlabel {
+        min-width: 3.4em;
+        text-align: center;
+        font-weight: 800;
+        font-size: .92rem;
+        font-variant-numeric: tabular-nums;
+      }
+      .zoom-hint {
+        color: var(--ink-soft);
+        font-size: .82rem;
+        margin: 6px 0 0;
+      }
+
+      .palette-note {
+        color: var(--ink-soft);
+        font-size: .85rem;
+        margin: 8px 0 0;
+      }
+
+      .subhead {
+        font-size: .85rem;
+        font-weight: 800;
+        color: var(--ink-soft);
+        margin: 14px 0 0;
+      }
+      .canvas-wrap::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image: radial-gradient(circle, rgba(90, 60, 140, .13) 1.2px, transparent 1.3px);
+        background-size: 24px 24px;
+        pointer-events: none;
+      }
+
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px;
+        margin-top: 12px;
+        box-shadow: var(--shadow);
+      }
+      .panel h2 {
+        font-size: .85rem;
+        font-weight: 800;
+        color: var(--ink-soft);
+        margin: 0 0 8px;
+      }
+
+      .palette-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .swatch {
+        background: var(--surface);
+        border: 2px solid var(--line);
+        border-radius: 50%;
+        padding: 5px;
+        cursor: pointer;
+        min-width: 48px;
+        min-height: 48px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: var(--shadow);
+      }
+      .swatch .dot {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: 2px solid var(--line);
+        display: block;
+      }
+      .swatch[aria-pressed="true"] {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px var(--accent);
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin-top: 10px;
+      }
+      .icon-btn {
+        font: inherit;
+        background: var(--surface-2);
+        color: var(--ink);
+        border: 2px solid transparent;
+        border-radius: 10px;
+        width: 48px;
+        height: 48px;
+        min-height: 48px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        padding: 0;
+      }
+      .icon-btn svg { width: 24px; height: 24px; display: block; }
+      .icon-btn[aria-pressed="true"] {
+        background: var(--accent-soft);
+        border-color: var(--accent);
+      }
+      .icon-btn.plain { border-color: var(--line); background: var(--surface); }
+      .icon-btn:disabled { opacity: .4; cursor: default; }
+      .tool-sep {
+        width: 1px;
+        align-self: stretch;
+        background: var(--line);
+        margin: 6px 2px;
+      }
+
+      .tools {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+      .tool-btn {
+        font: inherit;
+        font-weight: 700;
+        font-size: .9rem;
+        background: var(--surface-2);
+        color: var(--ink);
+        border: 2px solid transparent;
+        border-radius: 10px;
+        padding: 8px 14px;
+        min-height: 44px;
+        cursor: pointer;
+      }
+      .tool-btn[aria-pressed="true"] {
+        background: var(--accent-soft);
+        border-color: var(--accent);
+        color: var(--ink);
+      }
+      .tool-btn.plain { border-color: var(--line); background: var(--surface); }
+      .tool-btn:disabled { opacity: .4; cursor: default; }
+      .size-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 10px;
+        font-size: .88rem;
+        font-weight: 700;
+      }
+      .size-row input[type="range"] { flex: 1; min-height: 36px; accent-color: var(--accent); }
+
+      .judge-btn {
+        width: 100%;
+        margin-top: 14px;
+        font: inherit;
+        font-size: 1.2rem;
+        font-weight: 800;
+        background: var(--accent);
+        color: var(--accent-ink);
+        border: none;
+        border-radius: 14px;
+        padding: 16px;
+        min-height: 60px;
+        cursor: pointer;
+        box-shadow: var(--shadow);
+      }
+      .judge-btn:active { transform: scale(.99); }
+
+      #result { display: none; }
+      #result.show { display: block; }
+      .score-row {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .score-num {
+        font-size: 3.4rem;
+        font-weight: 800;
+        line-height: 1;
+        color: var(--accent);
+        font-variant-numeric: tabular-nums;
+      }
+      .score-unit { font-size: 1.3rem; font-weight: 800; color: var(--accent); }
+      .score-tier { font-size: 1.1rem; font-weight: 800; margin: 6px 0 2px; }
+
+      .bars { margin-top: 10px; display: grid; gap: 8px; }
+      .bar-row {
+        display: grid;
+        grid-template-columns: 3.4em 1fr 3.4em;
+        align-items: center;
+        gap: 8px;
+        font-size: .88rem;
+        font-weight: 700;
+      }
+      .bar-track {
+        height: 12px;
+        background: var(--surface-2);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .bar-fill { height: 100%; border-radius: 6px; width: 0%; transition: width .6s ease; }
+      .bar-val { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+
+      .result-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+      }
+      .result-actions .tool-btn { flex: 1 1 auto; text-align: center; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+      .result-actions .tool-btn.primary {
+        background: var(--accent);
+        color: var(--accent-ink);
+        border-color: var(--accent);
+        flex-basis: 100%;
+        font-size: 1rem;
+        min-height: 52px;
+      }
+
+      .share-preview { margin-top: 14px; }
+      .share-preview img {
+        width: 100%;
+        max-width: 320px;
+        display: block;
+        margin: 0 auto;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+      }
+      .share-note { color: var(--ink-soft); font-size: .82rem; margin: 8px 0 0; text-align: center; }
+      .share-status { color: var(--ink-soft); font-size: .85rem; margin: 8px 0 0; min-height: 1.2em; }
+      .share-preview img { cursor: pointer; }
+
+      .save-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 60;
+        background: rgba(18, 10, 32, .74);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+      .save-modal[hidden] { display: none; }
+      .save-modal-card {
+        background: var(--surface);
+        border-radius: 16px;
+        padding: 14px;
+        width: 100%;
+        max-width: 400px;
+        max-height: 92vh;
+        overflow-y: auto;
+        box-shadow: var(--shadow);
+      }
+      .save-modal-card img { width: 100%; display: block; border-radius: 10px; border: 1px solid var(--line); }
+      .save-modal-text { font-size: .92rem; font-weight: 700; margin: 10px 0 0; text-align: center; }
+      .save-modal-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+      .save-modal-actions .tool-btn { flex: 1 1 auto; text-align: center; }
+      .save-modal-actions .tool-btn.primary {
+        background: var(--accent);
+        color: var(--accent-ink);
+        border-color: var(--accent);
+        flex-basis: 100%;
+        font-size: 1rem;
+        min-height: 50px;
+      }
+
+      .howto { margin-top: 20px; color: var(--ink-soft); font-size: .9rem; }
+      .howto h2 { font-size: .95rem; color: var(--ink); margin: 0 0 6px; }
+      .howto ol { margin: 0; padding-left: 1.4em; }
+      .howto li { margin: 3px 0; }
+
+      @media (prefers-reduced-motion: reduce) {
+        .bar-fill { transition: none; }
+        .swatch .dot { transform: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>『紫のうさぎ』おえかき再現度ゲーム</h1>
+      <p class="lead">見本は出ません。記憶だけを頼りに描いて、再現度で判定します。</p>
+
+      <section class="theme" aria-label="お題">
+        <p class="theme-label">お題</p>
+        <p class="theme-text">話題のあの紫キャラ、描けますか？</p>
+        <p class="theme-note">交通系ICの、インパクトの強いあの新キャラです。検索しないで、記憶で勝負。</p>
+      </section>
+
+      <div class="palette-bar" id="palette" role="group" aria-label="色パレット">
+        <button type="button" class="swatch" data-color="purple" aria-pressed="true" aria-label="紫" title="紫"><span class="dot" style="background:#8b2fe0"></span></button>
+        <button type="button" class="swatch" data-color="dark" aria-pressed="false" aria-label="濃い紫" title="濃い紫"><span class="dot" style="background:#5b21b6"></span></button>
+        <button type="button" class="swatch" data-color="white" aria-pressed="false" aria-label="白" title="白"><span class="dot" style="background:#ffffff"></span></button>
+        <button type="button" class="swatch" data-color="black" aria-pressed="false" aria-label="黒" title="黒"><span class="dot" style="background:#222222"></span></button>
+        <button type="button" class="swatch" data-color="gray" aria-pressed="false" aria-label="グレー" title="グレー"><span class="dot" style="background:#8d8d93"></span></button>
+        <button type="button" class="swatch" data-color="pink" aria-pressed="false" aria-label="ピンク" title="ピンク"><span class="dot" style="background:#f28bb4"></span></button>
+        <button type="button" class="swatch" data-color="sky" aria-pressed="false" aria-label="水色" title="水色"><span class="dot" style="background:#79b5e0"></span></button>
+        <button type="button" class="swatch" data-color="brown" aria-pressed="false" aria-label="茶色" title="茶色"><span class="dot" style="background:#8a5a2b"></span></button>
+      </div>
+
+      <div class="canvas-wrap" id="canvasWrap">
+        <div class="canvas-zoom" id="canvasZoom">
+          <canvas id="drawCanvas" width="800" height="1000" aria-label="お絵描きキャンバス"></canvas>
+        </div>
+      </div>
+
+      <div class="toolbar" role="group" aria-label="道具">
+        <button type="button" class="icon-btn" id="toolPen" aria-pressed="true" aria-label="ペン" title="ペン">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+        </button>
+        <button type="button" class="icon-btn" id="toolFill" aria-pressed="false" aria-label="塗りつぶし" title="塗りつぶし">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.6 10.2 12 3.8l6.4 6.4a2 2 0 0 1 0 2.8l-3.9 3.9a2 2 0 0 1-2.8 0L5.6 13a2 2 0 0 1 0-2.8Z"/><path d="M3 21h6"/></svg>
+        </button>
+        <button type="button" class="icon-btn" id="toolEraser" aria-pressed="false" aria-label="消しゴム" title="消しゴム">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+        </button>
+        <button type="button" class="icon-btn" id="toolMove" aria-pressed="false" aria-label="移動" title="移動">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>
+        </button>
+        <span class="tool-sep" aria-hidden="true"></span>
+        <button type="button" class="icon-btn plain" id="undoBtn" disabled aria-label="もどる" title="もどる">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+        </button>
+        <button type="button" class="icon-btn plain" id="clearBtn" aria-label="全消し" title="全消し">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        </button>
+      </div>
+      <div class="size-row">
+        <label for="brushSize">太さ</label>
+        <input type="range" id="brushSize" min="2" max="44" value="16" step="1" />
+        <span id="brushSizeVal">16</span>
+      </div>
+
+      <div class="zoom-bar">
+        <button type="button" class="tool-btn" id="zoomOutBtn" aria-label="縮小">－</button>
+        <span class="zlabel" id="zoomLabel">100%</span>
+        <button type="button" class="tool-btn" id="zoomInBtn" aria-label="拡大">＋</button>
+        <button type="button" class="tool-btn plain" id="zoomResetBtn">全体表示</button>
+      </div>
+      <p class="zoom-hint">キャンバスはピンチ（2本指）で拡大・移動できます。目や口などの細かい部分は、拡大して描くのがおすすめです。</p>
+
+      <button type="button" class="judge-btn" id="judgeBtn">判定する！</button>
+
+      <section class="panel" id="result" aria-live="polite" aria-label="判定結果">
+        <h2>判定結果</h2>
+        <div class="score-row">
+          <span class="score-num" id="scoreNum">0</span><span class="score-unit">% 再現</span>
+        </div>
+        <p class="score-tier" id="scoreTier"></p>
+        <h3 class="subhead">パーツ別</h3>
+        <div class="bars" id="partBars"></div>
+        <div class="share-preview" id="sharePreviewWrap" hidden>
+          <img id="sharePreview" alt="共有用の結果画像：描いた絵と再現度" />
+          <p class="share-note">共有用画像です。タップすると大きく表示します（長押しで保存もできます）。</p>
+        </div>
+        <div class="result-actions">
+          <button type="button" class="tool-btn primary" id="shareImgBtn">画像で共有する</button>
+          <button type="button" class="tool-btn" id="saveBtn">画像を保存</button>
+          <a class="tool-btn" id="shareBtn" href="#" target="_blank" rel="noopener">Xでポスト</a>
+          <button type="button" class="tool-btn plain" id="retryBtn">はじめから描き直す</button>
+        </div>
+        <p class="share-status" id="shareStatus" role="status"></p>
+      </section>
+
+      <section class="howto">
+        <h2>あそびかた</h2>
+        <ol>
+          <li>お題のキャラを、見本なし・記憶だけで描きます。判定に使う色は紫・濃い紫・白・黒の4色で、そのほかの色も自由に描けます（再現度には入りません）。</li>
+          <li>「判定する！」を押すと、再現度とパーツ別の内訳が出ます。</li>
+          <li>キャンバスはピンチで最大4倍まで拡大できます。「移動」ツールを選ぶと、拡大したまま表示位置をドラッグでずらせます。目や口などの細部は拡大して描くのがおすすめです。</li>
+          <li>判定すると、絵と再現度が入った共有用画像が1枚できます。「画像で共有する」でそのままSNSに投稿できます。「画像を保存」を押すと画像が大きく表示されるので、長押しで写真に保存してください。</li>
+        </ol>
+      </section>
+
+      <div class="save-modal" id="saveModal" hidden role="dialog" aria-modal="true" aria-label="結果画像の保存">
+        <div class="save-modal-card">
+          <img id="saveModalImg" alt="共有用の結果画像：描いた絵と再現度" />
+          <p class="save-modal-text">画像を長押しすると、写真に保存できます。</p>
+          <div class="save-modal-actions">
+            <button type="button" class="tool-btn primary" id="saveModalShare">共有シートを開く</button>
+            <button type="button" class="tool-btn" id="saveModalDl">ダウンロード</button>
+            <button type="button" class="tool-btn plain" id="saveModalClose">閉じる</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      (function () {
+        "use strict";
+
+        // ---------- 正解データ：40×50グリッドの「指定色」配置 ----------
+        // . = 空白（何も描かない） / P = 紫 / W = 白 / K = 黒
+        // 濃い紫で描いた部分も「紫」として数えます。
+        // 公式の比率に合わせて図形から生成する：耳は上に開いて先が外側へ垂れ、
+        // 顔は上部中央の白い楕円、目は点々、口は大きく開いた笑口、足は下で左右に開く。
+        var COLS = 40, ROWS = 50;
+        var TARGET = (function () {
+          var g = [];
+          var r, c;
+          for (r = 0; r < ROWS; r++) {
+            var rowArr = [];
+            for (c = 0; c < COLS; c++) rowArr.push(".");
+            g.push(rowArr);
+          }
+          function ellipse(cx, cy, rx, ry, ch) {
+            var r0 = Math.max(0, Math.floor(cy - ry)), r1 = Math.min(ROWS - 1, Math.ceil(cy + ry));
+            var c0 = Math.max(0, Math.floor(cx - rx)), c1 = Math.min(COLS - 1, Math.ceil(cx + rx));
+            for (var y = r0; y <= r1; y++) {
+              for (var x = c0; x <= c1; x++) {
+                var dx = (x + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / ry;
+                if (dx * dx + dy * dy <= 1) g[y][x] = ch;
+              }
+            }
+          }
+          function stamp(cx, cy, rad, ch) {
+            var r0 = Math.max(0, Math.floor(cy - rad)), r1 = Math.min(ROWS - 1, Math.ceil(cy + rad));
+            var c0 = Math.max(0, Math.floor(cx - rad)), c1 = Math.min(COLS - 1, Math.ceil(cx + rad));
+            for (var y = r0; y <= r1; y++) {
+              for (var x = c0; x <= c1; x++) {
+                var dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+                if (dx * dx + dy * dy <= rad * rad) g[y][x] = ch;
+              }
+            }
+          }
+          function limb(pts, rad, ch) {
+            for (var i = 0; i < pts.length - 1; i++) {
+              var x0 = pts[i][0], y0 = pts[i][1], x1 = pts[i + 1][0], y1 = pts[i + 1][1];
+              var steps = Math.max(2, Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 2));
+              for (var s = 0; s <= steps; s++) {
+                stamp(x0 + (x1 - x0) * s / steps, y0 + (y1 - y0) * s / steps, rad, ch);
+              }
+            }
+          }
+          // 体（頭〜胴〜腕をまとめたシルエット）
+          ellipse(19.5, 27, 12, 19, "P");
+          // 足（下で左右に開く）
+          ellipse(13.5, 45, 5, 3.6, "P");
+          ellipse(25.5, 45, 5, 3.6, "P");
+          // 耳（上に開いて、先が外側に垂れる）
+          limb([[15.5, 10], [10.5, 3.5], [6.5, 4], [5.5, 9.5]], 2.3, "P");
+          limb([[23.5, 10], [28.5, 3.5], [32.5, 4], [33.5, 9.5]], 2.3, "P");
+          // 脚の間の切り込み
+          for (r = 41; r < ROWS; r++) {
+            var half = 1.5 + (r - 41) * 0.22;
+            for (c = 0; c < COLS; c++) {
+              if (Math.abs(c + 0.5 - 19.5) <= half) g[r][c] = ".";
+            }
+          }
+          // 顔（上部中央の白い楕円）
+          ellipse(19.5, 18.5, 6.2, 5.0, "W");
+          // 目（点々）と鼻
+          stamp(16.3, 16.8, 1.15, "K");
+          stamp(22.7, 16.8, 1.15, "K");
+          stamp(19.5, 18.6, 0.75, "K");
+          // 口（大きく開いた笑口：下半分の楕円）
+          for (r = 19; r <= 24; r++) {
+            for (c = 13; c <= 26; c++) {
+              var mdx = (c + 0.5 - 19.5) / 5.2, mdy = (r + 0.5 - 19.8) / 3.4;
+              if (r + 0.5 >= 19.8 && mdx * mdx + mdy * mdy <= 1) g[r][c] = "K";
+            }
+          }
+          return g.map(function (rowArr) { return rowArr.join(""); });
+        })();
+
+        var COLORS = {
+          purple: "#8b2fe0",
+          dark:   "#5b21b6",
+          white:  "#ffffff",
+          black:  "#222222",
+          gray:   "#8d8d93",
+          pink:   "#f28bb4",
+          sky:    "#79b5e0",
+          brown:  "#8a5a2b"
+        };
+        // 判定用の代表色（RGB）。X は「判定対象外の色」で、どのマスの正解にもならない
+        var JUDGE_COLORS = [
+          { cat: "P", rgb: [139, 47, 224] },   // 紫（明）
+          { cat: "P", rgb: [91, 33, 182] },    // 紫（濃）→ カテゴリは P
+          { cat: "W", rgb: [255, 255, 255] },
+          { cat: "K", rgb: [34, 34, 34] },
+          { cat: "X", rgb: [141, 141, 147] },  // グレー
+          { cat: "X", rgb: [242, 139, 180] },  // ピンク
+          { cat: "X", rgb: [121, 181, 224] },  // 水色
+          { cat: "X", rgb: [138, 90, 43] }     // 茶色
+        ];
+
+        var canvas = document.getElementById("drawCanvas");
+        var ctx = canvas.getContext("2d", { willReadFrequently: true });
+        var W = canvas.width, H = canvas.height;
+
+        var state = {
+          color: "purple",
+          tool: "pen",       // pen | fill | eraser
+          size: 16,
+          drawing: false,
+          lastX: 0, lastY: 0,
+          undoStack: [],
+          judged: null,      // {score, perCat, perPart}
+          shareBlob: null,   // 共有用カード画像（判定時に生成しておく）
+          shareFile: null,
+          shareUrl: null,
+          shareDataUrl: null
+        };
+
+        // ---------- 座標変換 ----------
+        function posFromEvent(e) {
+          var r = canvas.getBoundingClientRect();
+          return {
+            x: (e.clientX - r.left) * (W / r.width),
+            y: (e.clientY - r.top) * (H / r.height)
+          };
+        }
+
+        // ---------- アンドゥ ----------
+        var undoBtn = document.getElementById("undoBtn");
+        function pushUndo() {
+          try {
+            state.undoStack.push(canvas.toDataURL());
+            if (state.undoStack.length > 30) state.undoStack.shift();
+            undoBtn.disabled = false;
+          } catch (err) { /* 保存できない環境では無効のまま */ }
+        }
+        function restoreSnapshot(url) {
+          var img = new Image();
+          img.onload = function () {
+            ctx.save();
+            ctx.globalCompositeOperation = "source-over";
+            ctx.clearRect(0, 0, W, H);
+            ctx.drawImage(img, 0, 0);
+            ctx.restore();
+          };
+          img.src = url;
+        }
+        undoBtn.addEventListener("click", function () {
+          var url = state.undoStack.pop();
+          if (!url) return;
+          restoreSnapshot(url);
+          undoBtn.disabled = state.undoStack.length === 0;
+        });
+
+        // ---------- 描画 ----------
+        function strokeStyle() {
+          return COLORS[state.color];
+        }
+        function drawDot(x, y) {
+          ctx.save();
+          if (state.tool === "eraser") {
+            ctx.globalCompositeOperation = "destination-out";
+            ctx.fillStyle = "rgba(0,0,0,1)";
+          } else {
+            ctx.globalCompositeOperation = "source-over";
+            ctx.fillStyle = strokeStyle();
+          }
+          ctx.beginPath();
+          ctx.arc(x, y, state.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+        function drawLine(x0, y0, x1, y1) {
+          ctx.save();
+          if (state.tool === "eraser") {
+            ctx.globalCompositeOperation = "destination-out";
+            ctx.strokeStyle = "rgba(0,0,0,1)";
+          } else {
+            ctx.globalCompositeOperation = "source-over";
+            ctx.strokeStyle = strokeStyle();
+          }
+          ctx.lineWidth = state.size;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.beginPath();
+          ctx.moveTo(x0, y0);
+          ctx.lineTo(x1, y1);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // ---------- 塗りつぶし（フラッドフィル） ----------
+        function hexToRgb(hex) {
+          return [
+            parseInt(hex.slice(1, 3), 16),
+            parseInt(hex.slice(3, 5), 16),
+            parseInt(hex.slice(5, 7), 16)
+          ];
+        }
+        function floodFill(sx, sy, fillRgb, erase) {
+          sx = Math.floor(sx); sy = Math.floor(sy);
+          if (sx < 0 || sy < 0 || sx >= W || sy >= H) return;
+          var img = ctx.getImageData(0, 0, W, H);
+          var d = img.data;
+          var start = (sy * W + sx) * 4;
+          var tr = d[start], tg = d[start + 1], tb = d[start + 2], ta = d[start + 3];
+          var fr = erase ? 0 : fillRgb[0], fg = erase ? 0 : fillRgb[1], fb = erase ? 0 : fillRgb[2], fa = erase ? 0 : 255;
+          if (tr === fr && tg === fg && tb === fb && ta === fa) return;
+          function match(i) {
+            return Math.abs(d[i] - tr) < 72 && Math.abs(d[i + 1] - tg) < 72 &&
+                   Math.abs(d[i + 2] - tb) < 72 && Math.abs(d[i + 3] - ta) < 72;
+          }
+          var stack = [[sx, sy]];
+          var seen = new Uint8Array(W * H);
+          while (stack.length) {
+            var p = stack.pop();
+            var x = p[0], y = p[1];
+            if (x < 0 || y < 0 || x >= W || y >= H) continue;
+            var idx = y * W + x;
+            if (seen[idx]) continue;
+            seen[idx] = 1;
+            var i = idx * 4;
+            if (!match(i)) continue;
+            d[i] = fr; d[i + 1] = fg; d[i + 2] = fb; d[i + 3] = fa;
+            stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+          }
+          ctx.putImageData(img, 0, 0);
+        }
+
+        // ---------- 縁のぼかし除去 ----------
+        // ストローク終了時に半透明の縁ピクセルを二値化し、色もパレット色へ寄せる。
+        // これで塗りつぶし後にペンの周りに白い縁が残らなくなる。
+        var PALETTE_RGB = Object.keys(COLORS).map(function (k) { return hexToRgb(COLORS[k]); });
+        function crispEdges() {
+          var img = ctx.getImageData(0, 0, W, H);
+          var d = img.data;
+          for (var i = 0; i < d.length; i += 4) {
+            var a = d[i + 3];
+            if (a === 0 || a === 255) continue;
+            if (a < 110) { d[i + 3] = 0; continue; }
+            d[i + 3] = 255;
+            var best = null, bd = Infinity;
+            for (var j = 0; j < PALETTE_RGB.length; j++) {
+              var c = PALETTE_RGB[j];
+              var dr = d[i] - c[0], dg = d[i + 1] - c[1], db = d[i + 2] - c[2];
+              var dist = dr * dr + dg * dg + db * db;
+              if (dist < bd) { bd = dist; best = c; }
+            }
+            if (best) { d[i] = best[0]; d[i + 1] = best[1]; d[i + 2] = best[2]; }
+          }
+          ctx.putImageData(img, 0, 0);
+        }
+
+        // ---------- ズーム＆パン ----------
+        var wrap = document.getElementById("canvasWrap");
+        var zoomEl = document.getElementById("canvasZoom");
+        var zoomLabel = document.getElementById("zoomLabel");
+        var view = { s: 1, tx: 0, ty: 0 };
+        var pointers = new Map();
+        var pinch = null;
+        var panDrag = null;
+
+        function applyView() {
+          zoomEl.style.transform = "translate(" + view.tx + "px, " + view.ty + "px) scale(" + view.s + ")";
+          zoomLabel.textContent = Math.round(view.s * 100) + "%";
+        }
+        function clampView() {
+          if (view.s <= 1) { view.s = 1; view.tx = 0; view.ty = 0; return; }
+          var w = wrap.clientWidth, h = wrap.clientHeight, m = 40;
+          view.tx = Math.max(w - w * view.s - m, Math.min(m, view.tx));
+          view.ty = Math.max(h - h * view.s - m, Math.min(m, view.ty));
+        }
+        function zoomAt(cx, cy, factor) {
+          var ns = Math.max(1, Math.min(4, view.s * factor));
+          var cX = (cx - view.tx) / view.s, cY = (cy - view.ty) / view.s;
+          view.s = ns;
+          view.tx = cx - cX * ns;
+          view.ty = cy - cY * ns;
+          clampView();
+          applyView();
+        }
+        document.getElementById("zoomInBtn").addEventListener("click", function () {
+          zoomAt(wrap.clientWidth / 2, wrap.clientHeight / 2, 1.35);
+        });
+        document.getElementById("zoomOutBtn").addEventListener("click", function () {
+          zoomAt(wrap.clientWidth / 2, wrap.clientHeight / 2, 1 / 1.35);
+        });
+        document.getElementById("zoomResetBtn").addEventListener("click", function () {
+          view.s = 1; view.tx = 0; view.ty = 0; applyView();
+        });
+        wrap.addEventListener("wheel", function (e) {
+          e.preventDefault();
+          var r = wrap.getBoundingClientRect();
+          zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * 0.0016));
+        }, { passive: false });
+
+        // キャンバス以外の場所ではページ自体の拡大を禁止する
+        // （キャンバス内のピンチズームは上の自前実装で処理する）
+        document.addEventListener("gesturestart", function (e) {
+          if (!wrap.contains(e.target)) e.preventDefault();
+        });
+        document.addEventListener("gesturechange", function (e) {
+          if (!wrap.contains(e.target)) e.preventDefault();
+        });
+        document.addEventListener("touchmove", function (e) {
+          if (e.touches.length > 1 && !wrap.contains(e.target)) e.preventDefault();
+        }, { passive: false });
+        document.addEventListener("wheel", function (e) {
+          if (e.ctrlKey && !wrap.contains(e.target)) e.preventDefault();
+        }, { passive: false });
+
+        canvas.addEventListener("pointerdown", function (e) {
+          e.preventDefault();
+          pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          if (pointers.size === 2) {
+            // ピンチ開始：描きかけを巻き戻してズーム操作に切り替える
+            if (state.drawing) {
+              state.drawing = false;
+              var snap = state.undoStack.pop();
+              if (snap) restoreSnapshot(snap);
+              undoBtn.disabled = state.undoStack.length === 0;
+            }
+            var pts = Array.from(pointers.values());
+            var r0 = wrap.getBoundingClientRect();
+            pinch = {
+              d: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y),
+              mx: (pts[0].x + pts[1].x) / 2 - r0.left,
+              my: (pts[0].y + pts[1].y) / 2 - r0.top,
+              s: view.s, tx: view.tx, ty: view.ty
+            };
+            panDrag = null;
+            return;
+          }
+          if (pointers.size > 2) return;
+          if (state.tool === "move") {
+            panDrag = { x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty };
+            return;
+          }
+          var p = posFromEvent(e);
+          pushUndo();
+          if (state.tool === "fill") {
+            floodFill(p.x, p.y, hexToRgb(COLORS[state.color]), false);
+            return;
+          }
+          if (state.tool === "eraser" && e.shiftKey) { /* no-op guard */ }
+          state.drawing = true;
+          state.lastX = p.x; state.lastY = p.y;
+          try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+          drawDot(p.x, p.y);
+        });
+        canvas.addEventListener("pointermove", function (e) {
+          if (pointers.has(e.pointerId)) {
+            pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          }
+          if (pinch && pointers.size === 2) {
+            e.preventDefault();
+            var pts = Array.from(pointers.values());
+            var r0 = wrap.getBoundingClientRect();
+            var d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+            var mx = (pts[0].x + pts[1].x) / 2 - r0.left;
+            var my = (pts[0].y + pts[1].y) / 2 - r0.top;
+            var ns = Math.max(1, Math.min(4, pinch.s * (d / Math.max(1, pinch.d))));
+            var cX = (pinch.mx - pinch.tx) / pinch.s, cY = (pinch.my - pinch.ty) / pinch.s;
+            view.s = ns;
+            view.tx = mx - cX * ns;
+            view.ty = my - cY * ns;
+            clampView();
+            applyView();
+            return;
+          }
+          if (panDrag) {
+            e.preventDefault();
+            view.tx = panDrag.tx + (e.clientX - panDrag.x);
+            view.ty = panDrag.ty + (e.clientY - panDrag.y);
+            clampView();
+            applyView();
+            return;
+          }
+          if (!state.drawing) return;
+          e.preventDefault();
+          var p = posFromEvent(e);
+          drawLine(state.lastX, state.lastY, p.x, p.y);
+          state.lastX = p.x; state.lastY = p.y;
+        });
+        function endStroke() {
+          if (state.drawing) { state.drawing = false; crispEdges(); }
+        }
+        function endPointer(e) {
+          pointers.delete(e.pointerId);
+          if (pointers.size < 2) pinch = null;
+          if (pointers.size === 0) panDrag = null;
+          endStroke();
+        }
+        canvas.addEventListener("pointerup", endPointer);
+        canvas.addEventListener("pointercancel", endPointer);
+
+        document.getElementById("clearBtn").addEventListener("click", function () {
+          pushUndo();
+          ctx.clearRect(0, 0, W, H);
+        });
+
+        // ---------- パレット＆道具 ----------
+        var palette = document.getElementById("palette");
+        palette.addEventListener("click", function (e) {
+          var btn = e.target.closest(".swatch");
+          if (!btn) return;
+          state.color = btn.getAttribute("data-color");
+          palette.querySelectorAll(".swatch").forEach(function (s) {
+            s.setAttribute("aria-pressed", s === btn ? "true" : "false");
+          });
+          if (state.tool === "eraser" || state.tool === "move") setTool("pen");
+        });
+
+        var toolBtns = {
+          pen: document.getElementById("toolPen"),
+          fill: document.getElementById("toolFill"),
+          eraser: document.getElementById("toolEraser"),
+          move: document.getElementById("toolMove")
+        };
+        function setTool(t) {
+          state.tool = t;
+          Object.keys(toolBtns).forEach(function (k) {
+            toolBtns[k].setAttribute("aria-pressed", k === t ? "true" : "false");
+          });
+          wrap.classList.toggle("panning", t === "move");
+        }
+        toolBtns.pen.addEventListener("click", function () { setTool("pen"); });
+        toolBtns.fill.addEventListener("click", function () { setTool("fill"); });
+        toolBtns.eraser.addEventListener("click", function () { setTool("eraser"); });
+        toolBtns.move.addEventListener("click", function () { setTool("move"); });
+
+        var sizeInput = document.getElementById("brushSize");
+        var sizeVal = document.getElementById("brushSizeVal");
+        sizeInput.addEventListener("input", function () {
+          state.size = parseInt(sizeInput.value, 10);
+          sizeVal.textContent = sizeInput.value;
+        });
+
+        // ---------- 判定 ----------
+        /*SCORING-CORE-BEGIN*/
+        // 判定のコア（DOMに触れない関数の集まり）。
+        // 手順：キャンバスを色分類グリッド化 → 採点対象の色から本体の外枠を拾う
+        // → 等倍スケールで位置合わせ → 体フレームで大きなパーツを、
+        // 顔フレームで目・口を測る（階層座標）。
+        var CVW = 800, CVH = 1000;
+
+        function classifyPixel(r, g, b, a) {
+          if (a < 128) return ".";
+          var best = "P", bestDist = Infinity;
+          for (var i = 0; i < JUDGE_COLORS.length; i++) {
+            var c = JUDGE_COLORS[i].rgb;
+            var dr = r - c[0], dg = g - c[1], db = b - c[2];
+            var dist = dr * dr + dg * dg + db * db;
+            if (dist < bestDist) { bestDist = dist; best = JUDGE_COLORS[i].cat; }
+          }
+          return best;
+        }
+
+        // 正解側の外接範囲（セル単位）
+        var TBOX = (function () {
+          var minC = COLS, maxC = -1, minR = ROWS, maxR = -1;
+          for (var r = 0; r < ROWS; r++) {
+            var rowStr = (TARGET[r] || "").padEnd(COLS, ".").slice(0, COLS);
+            for (var c = 0; c < COLS; c++) {
+              if (rowStr[c] !== ".") {
+                if (c < minC) minC = c;
+                if (c > maxC) maxC = c;
+                if (r < minR) minR = r;
+                if (r > maxR) maxR = r;
+              }
+            }
+          }
+          if (maxC < 0) { minC = 0; maxC = COLS - 1; minR = 0; maxR = ROWS - 1; }
+          return { minC: minC, maxC: maxC, minR: minR, maxR: maxR };
+        })();
+
+        // キャンバス画像 → 色分類グリッド（セルごとの色カウント）
+        function sampleGrid(img) {
+          var cellW = CVW / COLS, cellH = CVH / ROWS;
+          var step = 4; // 4pxごとにサンプリング
+          var grid = [];
+          for (var row = 0; row < ROWS; row++) {
+            for (var col = 0; col < COLS; col++) {
+              var counts = { P: 0, W: 0, K: 0, ".": 0, X: 0 };
+              var n = 0;
+              var x0 = Math.floor(col * cellW), x1 = Math.floor((col + 1) * cellW);
+              var y0 = Math.floor(row * cellH), y1 = Math.floor((row + 1) * cellH);
+              for (var y = y0; y < y1; y += step) {
+                for (var x = x0; x < x1; x += step) {
+                  var i = (y * CVW + x) * 4;
+                  counts[classifyPixel(img[i], img[i + 1], img[i + 2], img[i + 3])]++;
+                  n++;
+                }
+              }
+              grid.push({ row: row, col: col, counts: counts, n: n });
+            }
+          }
+          return grid;
+        }
+
+        // 4近傍の連結成分。mask は COLS*ROWS の真偽配列。
+        // 色分類した後のグリッド上で行う（生のキャンバスでは行わない）。
+        function components(mask) {
+          var seen = new Uint8Array(COLS * ROWS);
+          var comps = [];
+          for (var i = 0; i < mask.length; i++) {
+            if (!mask[i] || seen[i]) continue;
+            var stack = [i], cells = [];
+            seen[i] = 1;
+            while (stack.length) {
+              var cur = stack.pop();
+              cells.push(cur);
+              var cx = cur % COLS, cy = (cur / COLS) | 0;
+              if (cx > 0 && mask[cur - 1] && !seen[cur - 1]) { seen[cur - 1] = 1; stack.push(cur - 1); }
+              if (cx < COLS - 1 && mask[cur + 1] && !seen[cur + 1]) { seen[cur + 1] = 1; stack.push(cur + 1); }
+              if (cy > 0 && mask[cur - COLS] && !seen[cur - COLS]) { seen[cur - COLS] = 1; stack.push(cur - COLS); }
+              if (cy < ROWS - 1 && mask[cur + COLS] && !seen[cur + COLS]) { seen[cur + COLS] = 1; stack.push(cur + COLS); }
+            }
+            var minC = COLS, maxC = -1, minR = ROWS, maxR = -1, sx = 0, sy = 0;
+            cells.forEach(function (ci) {
+              var x = ci % COLS, y = (ci / COLS) | 0;
+              sx += x; sy += y;
+              if (x < minC) minC = x;
+              if (x > maxC) maxC = x;
+              if (y < minR) minR = y;
+              if (y > maxR) maxR = y;
+            });
+            comps.push({
+              cells: cells, area: cells.length,
+              minC: minC, maxC: maxC, minR: minR, maxR: maxR,
+              cx: sx / cells.length, cy: sy / cells.length,
+              w: maxC - minC + 1, h: maxR - minR + 1
+            });
+          }
+          return comps;
+        }
+
+        // 採点対象の色（紫・白・黒）からキャラ本体の外接範囲を拾う。
+        // 小さな孤立点は外枠を決めるときだけ外す（採点自体からは外さないので、
+        // 目のような小パーツは残る）。
+        function bodyBBox(grid) {
+          var mask = grid.map(function (c) {
+            return (c.counts.P + c.counts.W + c.counts.K) / c.n >= 0.5;
+          });
+          var comps = components(mask);
+          if (!comps.length) return null;
+          var largest = 0;
+          comps.forEach(function (k) { if (k.area > largest) largest = k.area; });
+          var thresh = Math.max(3, Math.ceil(largest * 0.02));
+          var box = null;
+          comps.forEach(function (k) {
+            if (k.area < thresh) return;
+            if (!box) {
+              box = { minC: k.minC, maxC: k.maxC, minR: k.minR, maxR: k.maxR };
+            } else {
+              box.minC = Math.min(box.minC, k.minC);
+              box.maxC = Math.max(box.maxC, k.maxC);
+              box.minR = Math.min(box.minR, k.minR);
+              box.maxR = Math.max(box.maxR, k.maxR);
+            }
+          });
+          return box;
+        }
+
+        // 等倍スケールで位置合わせ：縦横に同じ倍率をかけて中心を正解の中心に合わせる。
+        // 引き伸ばしはしないので、縦横比の違いは形の違いとして残る。
+        // サンプリングは最近傍（色の滲みで小パーツや輪郭が痩せないように）。
+        function alignGrid(grid, box) {
+          var tw = TBOX.maxC - TBOX.minC + 1, th = TBOX.maxR - TBOX.minR + 1;
+          var bw = box.maxC - box.minC + 1, bh = box.maxR - box.minR + 1;
+          var s = Math.min(tw / bw, th / bh);
+          var tcx = (TBOX.minC + TBOX.maxC) / 2, tcy = (TBOX.minR + TBOX.maxR) / 2;
+          var dcx = (box.minC + box.maxC) / 2, dcy = (box.minR + box.maxR) / 2;
+          var cats = ["P", "W", "K", ".", "X"];
+          var out = [];
+          for (var r = 0; r < ROWS; r++) {
+            for (var c = 0; c < COLS; c++) {
+              var sc = Math.round(dcx + (c - tcx) / s), sr = Math.round(dcy + (r - tcy) / s);
+              var counts = { P: 0, W: 0, K: 0, ".": 0, X: 0 };
+              if (sc < 0 || sr < 0 || sc >= COLS || sr >= ROWS) {
+                counts["."] = 100;
+              } else {
+                var cell = grid[sr * COLS + sc];
+                cats.forEach(function (k) { counts[k] = (cell.counts[k] / cell.n) * 100; });
+              }
+              out.push({ row: r, col: c, counts: counts, n: 100 });
+            }
+          }
+          return out;
+        }
+
+        // セルに正解カテゴリと一致度を付ける。
+        // 近傍の許容：真下だけでなく周囲±2マス以内に正解色があれば一致として数える
+        // （距離で割り引く）。小さい位置ずれは許すが、色違いは一致にならない。
+        function finalizeCells(cells) {
+          cells.forEach(function (cell) {
+            var targetRow = (TARGET[cell.row] || "").padEnd(COLS, ".").slice(0, COLS);
+            cell.target = targetRow[cell.col];
+            cell.fracStrict = cell.n ? cell.counts[cell.target] / cell.n : 0;
+            cell.frac = cell.fracStrict;
+          });
+          var TOLW = [1, 0.8, 0.55];
+          cells.forEach(function (cell) {
+            if (cell.target !== "P" && cell.target !== "W" && cell.target !== "K") return;
+            var best = 0;
+            for (var dr = -2; dr <= 2; dr++) {
+              for (var dc = -2; dc <= 2; dc++) {
+                var rr = cell.row + dr, cc = cell.col + dc;
+                if (rr < 0 || cc < 0 || rr >= ROWS || cc >= COLS) continue;
+                var nb = cells[rr * COLS + cc];
+                var dist = Math.max(Math.abs(dr), Math.abs(dc));
+                var f = (nb.n ? nb.counts[cell.target] / nb.n : 0) * TOLW[dist];
+                if (f > best) best = f;
+              }
+            }
+            cell.frac = best;
+          });
+          return cells;
+        }
+
+        // 領域内の色の割合の一致：少なすぎは比率で、多すぎは超過分で減点
+        function colorPropScore(drawn, target) {
+          if (target <= 0) return drawn <= 0.02 ? 1 : Math.max(0, 1 - drawn / 0.3);
+          if (drawn <= target) return drawn / target;
+          return Math.max(0, 1 - (drawn - target) / 0.5);
+        }
+
+        function zoneOf(cellList, margin) {
+          var minC = COLS, maxC = -1, minR = ROWS, maxR = -1;
+          cellList.forEach(function (c) {
+            if (c.col < minC) minC = c.col;
+            if (c.col > maxC) maxC = c.col;
+            if (c.row < minR) minR = c.row;
+            if (c.row > maxR) maxR = c.row;
+          });
+          if (maxC < 0) return null;
+          return {
+            minC: Math.max(0, minC - margin), maxC: Math.min(COLS - 1, maxC + margin),
+            minR: Math.max(0, minR - margin), maxR: Math.min(ROWS - 1, maxR + margin)
+          };
+        }
+
+        // 大きなパーツの判定：パーツのセルが正解色で埋まっているか（形）と、
+        // 領域内で正解色の割合が合っているか（色の割合）と、
+        // その色が正解のセルの上に置けているか（置き場所の正確さ）の組み合わせ。
+        function scorePart(cells, partCells, cat, zone) {
+          if (!partCells.length || !zone) return 0;
+          var shapeSum = 0;
+          partCells.forEach(function (c) { shapeSum += c.frac; });
+          var shape = shapeSum / partCells.length;
+          var dSum = 0, nSum = 0, tCells = 0, zCells = 0, hitSum = 0;
+          cells.forEach(function (c) {
+            if (c.row >= zone.minR && c.row <= zone.maxR && c.col >= zone.minC && c.col <= zone.maxC) {
+              dSum += c.counts[cat];
+              nSum += c.n;
+              zCells++;
+              if (c.target === cat) { tCells++; hitSum += c.counts[cat]; }
+            }
+          });
+          var color = colorPropScore(nSum ? dSum / nSum : 0, zCells ? tCells / zCells : 0);
+          var precision = dSum > 0 ? hitSum / dSum : 0;
+          return 0.45 * shape + 0.2 * color + 0.35 * precision;
+        }
+
+        // 白い顔を探す。フレーム（体）の中で、基準の顔位置に近く
+        // 大きい白の塊を顔とする。口で顔が上下に割れた場合は近くの白も取り込む。
+        function detectFace(grid, expected, frame) {
+          frame = frame || TBOX;
+          var mask = grid.map(function (c) { return c.counts.W / c.n >= 0.5; });
+          var comps = components(mask).filter(function (k) { return k.area >= 3; });
+          if (!comps.length) return null;
+          var tw = frame.maxC - frame.minC + 1, th = frame.maxR - frame.minR + 1;
+          var pick = null, pickScore = -1;
+          comps.forEach(function (k) {
+            var s = k.area;
+            if (expected) {
+              var bx = (k.cx + 0.5 - frame.minC) / tw;
+              var by = (k.cy + 0.5 - frame.minR) / th;
+              var d = Math.hypot(bx - expected.bx, by - expected.by);
+              s = k.area / (1 + d * 6);
+            }
+            if (s > pickScore) { pickScore = s; pick = k; }
+          });
+          var face = {
+            minC: pick.minC, maxC: pick.maxC, minR: pick.minR, maxR: pick.maxR,
+            area: pick.area, cx: pick.cx, cy: pick.cy
+          };
+          comps.forEach(function (k) {
+            if (k === pick) return;
+            var gapC = Math.max(face.minC - k.maxC, k.minC - face.maxC) - 1;
+            var gapR = Math.max(face.minR - k.maxR, k.minR - face.maxR) - 1;
+            if (gapC <= 2 && gapR <= 2) {
+              face.area += k.area;
+              face.minC = Math.min(face.minC, k.minC);
+              face.maxC = Math.max(face.maxC, k.maxC);
+              face.minR = Math.min(face.minR, k.minR);
+              face.maxR = Math.max(face.maxR, k.maxR);
+            }
+          });
+          // 口の黒で顔の白が上下に割れることがあるため、顔のすぐ近くにある
+          // 黒の塊（目・口）まで外枠を広げ、顔フレームの中に目と口が入るようにする
+          var fw0 = face.maxC - face.minC + 1, fh0 = face.maxR - face.minR + 1;
+          var kMask = grid.map(function (c) { return c.counts.K / c.n >= 0.3; });
+          components(kMask).forEach(function (k) {
+            if (k.area < 1 || k.area > face.area) return;
+            if (k.cx < face.minC - fw0 * 0.15 || k.cx > face.maxC + fw0 * 0.15) return;
+            if (k.cy < face.minR - fh0 * 0.3 || k.cy > face.maxR + fh0 * 0.9) return;
+            face.minC = Math.min(face.minC, k.minC);
+            face.maxC = Math.max(face.maxC, k.maxC);
+            face.minR = Math.min(face.minR, k.minR);
+            face.maxR = Math.max(face.maxR, k.maxR);
+          });
+          // 顔の領域面積（外枠内にある白＋黒のセル数。目や口の分も含めて測る）
+          var region = 0;
+          for (var r = face.minR; r <= face.maxR; r++) {
+            for (var c = face.minC; c <= face.maxC; c++) {
+              var cell = grid[r * COLS + c];
+              if ((cell.counts.W + cell.counts.K) / cell.n >= 0.5) region++;
+            }
+          }
+          face.regionArea = Math.max(region, 1);
+          return face;
+        }
+
+        // 顔の中の黒い塊（連結成分）を左目・右目・口に割り当てる。
+        // 座標はすべて顔の中での相対座標（顔全体のズレに引きずられない）。
+        // 同じ塊は1つのパーツにだけ割り当てる。目の最小サイズは顔の大きさに対する比率。
+        // ref が null のときは基準図形用：位置関係から分類して相対座標を取り出す。
+        function analyzeFace(grid, face, ref) {
+          var out = { eyeL: null, eyeR: null, mouth: null, comps: [] };
+          if (!face) return out;
+          var fw = face.maxC - face.minC + 1, fh = face.maxR - face.minR + 1;
+          var minArea = Math.max(1, Math.round(face.regionArea * 0.008));
+          // 黒の濃い部分（0.42以上）で塊を取る。小さく描かれた顔では目と口が
+          // 薄い部分でつながってしまうため、ピーク側で分けて拾う。
+          var mask = grid.map(function (cell) { return cell.counts.K / cell.n >= 0.42; });
+          var comps = components(mask).filter(function (k) {
+            if (k.area < minArea || k.area > face.regionArea * 0.6) return false;
+            return k.cx >= face.minC - fw * 0.4 && k.cx <= face.maxC + fw * 0.4 &&
+                   k.cy >= face.minR - fh * 0.4 && k.cy <= face.maxR + fh * 0.4;
+          });
+          // 小さい塊同士が1マスの隙間で割れている場合は1つにまとめる
+          // （描く途中で目が2つに割れた場合など。口のような大きな塊とは混ぜない）
+          (function mergeNear() {
+            var maxArea = face.regionArea * 0.12;
+            var changed = true;
+            while (changed) {
+              changed = false;
+              for (var i = 0; i < comps.length && !changed; i++) {
+                for (var j = i + 1; j < comps.length; j++) {
+                  var a = comps[i], b = comps[j];
+                  if (a.area > maxArea || b.area > maxArea) continue;
+                  var gapC = Math.max(a.minC - b.maxC, b.minC - a.maxC) - 1;
+                  var gapR = Math.max(a.minR - b.maxR, b.minR - a.maxR) - 1;
+                  if (gapC > 1 || gapR > 1) continue;
+                  // 合体後の外枠が目サイズ程度に収まる場合だけまとめる
+                  // （鼻と口のように縦に並んだ別パーツは混ぜない）
+                  var uw = Math.max(a.maxC, b.maxC) - Math.min(a.minC, b.minC) + 1;
+                  var uh = Math.max(a.maxR, b.maxR) - Math.min(a.minR, b.minR) + 1;
+                  if (uw > fw * 0.4 || uh > fh * 0.45) continue;
+                  {
+                    var area = a.area + b.area;
+                    a.cx = (a.cx * a.area + b.cx * b.area) / area;
+                    a.cy = (a.cy * a.area + b.cy * b.area) / area;
+                    a.minC = Math.min(a.minC, b.minC);
+                    a.maxC = Math.max(a.maxC, b.maxC);
+                    a.minR = Math.min(a.minR, b.minR);
+                    a.maxR = Math.max(a.maxR, b.maxR);
+                    a.w = a.maxC - a.minC + 1;
+                    a.h = a.maxR - a.minR + 1;
+                    a.area = area;
+                    comps.splice(j, 1);
+                    changed = true;
+                    break;
+                  }
+                }
+              }
+            }
+          })();
+          comps.forEach(function (k) {
+            k.rx = (k.cx + 0.5 - face.minC) / fw;
+            k.ry = (k.cy + 0.5 - face.minR) / fh;
+            k.rw = k.w / fw;
+            k.rh = k.h / fh;
+            k.ra = k.area / face.regionArea;
+            // ソフト面積：外枠の周囲1セルにある黒の割合も合計する。
+            // 閾値で削れる縁の分を拾うので、小さく描いても面積が痩せにくい。
+            var soft = 0;
+            for (var r = Math.max(0, k.minR - 1); r <= Math.min(ROWS - 1, k.maxR + 1); r++) {
+              for (var c = Math.max(0, k.minC - 1); c <= Math.min(COLS - 1, k.maxC + 1); c++) {
+                var cell = grid[r * COLS + c];
+                soft += cell.counts.K / cell.n;
+              }
+            }
+            k.sa = soft / face.regionArea;
+          });
+          out.comps = comps;
+          function desc(k) { return { x: k.rx, y: k.ry, a: k.sa, w: k.rw, h: k.rh }; }
+          if (!ref) {
+            var upper = comps.filter(function (k) { return k.ry <= 0.55 && k.ra <= 0.3; })
+                             .sort(function (a, b) { return a.rx - b.rx; });
+            var eyeLRaw = null, eyeRRaw = null;
+            if (upper.length >= 2) { eyeLRaw = upper[0]; eyeRRaw = upper[upper.length - 1]; }
+            else if (upper.length === 1) {
+              if (upper[0].rx < 0.5) eyeLRaw = upper[0]; else eyeRRaw = upper[0];
+            }
+            if (eyeLRaw) out.eyeL = desc(eyeLRaw);
+            if (eyeRRaw) out.eyeR = desc(eyeRRaw);
+            var lower = comps.filter(function (k) {
+              return k.ry > 0.5 && k !== eyeLRaw && k !== eyeRRaw;
+            }).sort(function (a, b) { return b.rw - a.rw; });
+            if (lower.length) out.mouth = desc(lower[0]);
+            return out;
+          }
+          var used = {};
+          function assignEye(refEye, side) {
+            var best = -1, bestCost = Infinity;
+            comps.forEach(function (k, idx) {
+              if (used[idx] || k.ra > 0.3) return; // 大きすぎる塊は目ではない
+              if (side === "L" && k.rx > 0.47) return;
+              if (side === "R" && k.rx < 0.53) return; // 中央の鼻を目と誤認しない
+              var cost = Math.hypot(k.rx - refEye.x, k.ry - refEye.y);
+              if (cost < bestCost) { bestCost = cost; best = idx; }
+            });
+            if (best >= 0 && bestCost <= 0.34) {
+              used[best] = true;
+              var d = desc(comps[best]);
+              d.cost = bestCost;
+              return d;
+            }
+            return null;
+          }
+          if (ref.eyeL) out.eyeL = assignEye(ref.eyeL, "L");
+          if (ref.eyeR) out.eyeR = assignEye(ref.eyeR, "R");
+          if (ref.mouth) {
+            // 口：残りの塊から、顔の下の方にあって横幅のあるものを探す
+            var bestM = -1, bestMCost = Infinity;
+            comps.forEach(function (k, idx) {
+              if (used[idx]) return;
+              if (k.ry < 0.4) return;
+              if (k.rw < 0.2 && k.ra < 0.06) return; // 鼻のような小さい点は口ではない
+              var cost = Math.hypot(k.rx - ref.mouth.x, k.ry - ref.mouth.y);
+              if (cost < bestMCost) { bestMCost = cost; bestM = idx; }
+            });
+            if (bestM >= 0 && bestMCost <= 0.5) {
+              var md = desc(comps[bestM]);
+              md.cost = bestMCost;
+              out.mouth = md;
+            }
+          }
+          return out;
+        }
+
+        // 基準図形の顔と目・口（体フレーム／顔フレームでの相対座標）。
+        // 基準図形そのものを同じ検出にかけて取り出すので、測り方が常に一致する。
+        var REF = (function () {
+          var tgrid = [];
+          for (var r = 0; r < ROWS; r++) {
+            var rowStr = (TARGET[r] || "").padEnd(COLS, ".").slice(0, COLS);
+            for (var c = 0; c < COLS; c++) {
+              var counts = { P: 0, W: 0, K: 0, ".": 0, X: 0 };
+              counts[rowStr[c]] = 100;
+              tgrid.push({ row: r, col: c, counts: counts, n: 100 });
+            }
+          }
+          var face = detectFace(tgrid, null);
+          var charArea = 0;
+          tgrid.forEach(function (cell) {
+            if ((cell.counts.P + cell.counts.W + cell.counts.K) / cell.n >= 0.5) charArea++;
+          });
+          var feats = analyzeFace(tgrid, face, null);
+          var tw = TBOX.maxC - TBOX.minC + 1, th = TBOX.maxR - TBOX.minR + 1;
+          return {
+            faceBx: face ? (face.cx + 0.5 - TBOX.minC) / tw : 0.5,
+            faceBy: face ? (face.cy + 0.5 - TBOX.minR) / th : 0.35,
+            faceRelArea: face && charArea ? face.regionArea / charArea : 0.12,
+            eyeL: feats.eyeL, eyeR: feats.eyeR, mouth: feats.mouth
+          };
+        })();
+
+        // 目：位置が少しズレたら小さな減点、大きさの比でも減点。
+        // 見つからなければその目の点は入らない。
+        function eyeScore(found, refEye) {
+          if (!found || !refEye) return 0;
+          var pos = Math.max(0, 1 - found.cost / 0.42);
+          var ratio = Math.min(found.a / refEye.a, refEye.a / found.a);
+          return 0.55 * pos + 0.45 * Math.pow(ratio, 1.5);
+        }
+
+        // 口：目より下にあること、横幅と開き具合（縦幅）が近いことで加点。
+        function mouthScore(found, refMouth, feats) {
+          if (!found || !refMouth) return 0;
+          var pos = Math.max(0, 1 - found.cost / 0.45);
+          var wR = Math.min(found.w / refMouth.w, refMouth.w / found.w);
+          var hR = Math.min(found.h / refMouth.h, refMouth.h / found.h);
+          var s = 0.35 * pos + 0.4 * Math.pow(wR, 1.3) + 0.25 * hR;
+          var eyes = [];
+          if (feats.eyeL) eyes.push(feats.eyeL);
+          if (feats.eyeR) eyes.push(feats.eyeR);
+          if (eyes.length) {
+            var eyeY = Math.max.apply(null, eyes.map(function (e) { return e.y; }));
+            if (found.y <= eyeY + 0.04) s *= 0.3; // 口が目より下にない
+          }
+          return s;
+        }
+
+        // 結果欄のヒント：パーツ検出の結果から具体的に出す
+        function buildHint(info) {
+          var feats = info.feats;
+          if (!info.face) return "顔の白が見つからなかった。体の上の方に、白い楕円を描いてみて。";
+          if (!feats.eyeL) return "左目が見つからなかった。目は小さい黒点を、左右に一つずつ描くのがコツです。";
+          if (!feats.eyeR) return "右目が見つからなかった。目は小さい黒点を、左右に一つずつ描くのがコツです。";
+          if (!feats.mouth) return "口が見つからなかった。目の下に、大きく開いた口を描いてみて。";
+          var eyeY = Math.max(feats.eyeL.y, feats.eyeR.y);
+          if (feats.mouth.y <= eyeY + 0.04) return "口は目より下に描くと近づきます。";
+          if (REF.eyeL && REF.eyeR) {
+            if (feats.eyeL.a / REF.eyeL.a > 1.8 || feats.eyeR.a / REF.eyeR.a > 1.8) {
+              return "目が顔に対して大きめ。小さい点々にすると近づきます。";
+            }
+            if (feats.eyeL.a / REF.eyeL.a < 0.5 || feats.eyeR.a / REF.eyeR.a < 0.5) {
+              return "目が顔に対して小さめ。もう少しはっきり描くと近づきます。";
+            }
+          }
+          if (REF.mouth) {
+            if (feats.mouth.w / REF.mouth.w < 0.6) return "口が顔に対して小さめ。横に大きく開くと近づきます。";
+            if (feats.mouth.h / REF.mouth.h < 0.55) return "口の開きが小さめ。縦にも大きく開くと近づきます。";
+            if (feats.mouth.w / REF.mouth.w > 1.8) return "口が顔に対して大きめです。";
+          }
+          if (feats.eyeL.cost > 0.2 || feats.eyeR.cost > 0.2) {
+            return "目の位置が少しずれている。左右で高さをそろえると近づきます。";
+          }
+          if (info.faceSizeRatio > 0 && info.faceSizeRatio < 0.6) return "顔が体に対して小さめです。";
+          if (info.faceSizeRatio > 1.7) return "顔が体に対して大きめです。";
+          var others = [
+            { v: info.ears, t: "耳は上に開いて、先が外側に垂れる形です。" },
+            { v: info.body, t: "体の紫の広がりが合っていません。体は大きめに描くと近づきます。" },
+            { v: info.feet, t: "足は下で左右に開く形です。真ん中に切れ込みを入れると近づきます。" },
+            { v: info.sil, t: "キャラの外側の余白も形の一部です。はみ出しを減らすと上がります。" },
+            { v: info.faceScore, t: "顔の白は、体の上の方に楕円で置くのがコツです。" }
+          ];
+          others.sort(function (a, b) { return a.v - b.v; });
+          return others[0].t;
+        }
+
+        function scoreAligned(cells, faceInfo) {
+          // 色別：正解の外接範囲内のセルだけで集計（範囲外の余白で稼がない）
+          var catSum = { P: 0, W: 0, K: 0, ".": 0 };
+          var catCnt = { P: 0, W: 0, K: 0, ".": 0 };
+          cells.forEach(function (c) {
+            if (c.col < TBOX.minC || c.col > TBOX.maxC || c.row < TBOX.minR || c.row > TBOX.maxR) return;
+            catSum[c.target] += c.fracStrict;
+            catCnt[c.target]++;
+          });
+          var perCat = {};
+          Object.keys(catSum).forEach(function (k) {
+            perCat[k] = catCnt[k] ? Math.round((catSum[k] / catCnt[k]) * 100) : 0;
+          });
+
+          // 大きなパーツ（体フレームで測る）
+          var faceZone = zoneOf(cells.filter(function (c) { return c.target === "W" || c.target === "K"; }), 2);
+          function gridPart(cat, filter, zone) {
+            var pc = cells.filter(filter);
+            return scorePart(cells, pc, cat, zone || zoneOf(pc, 2));
+          }
+          var ears = gridPart("P", function (c) { return c.target === "P" && c.row <= 14; });
+          var faceGrid = gridPart("W", function (c) { return c.target === "W"; }, faceZone);
+          var body = gridPart("P", function (c) { return c.target === "P" && c.row >= 15 && c.row <= 41; });
+          var feet = gridPart("P", function (c) { return c.target === "P" && c.row >= 42; });
+          var sil = gridPart(".", function (c) {
+            return c.target === "." && c.col >= TBOX.minC && c.col <= TBOX.maxC && c.row >= TBOX.minR && c.row <= TBOX.maxR;
+          }, TBOX);
+
+          // 階層座標：顔の位置と大きさは体を基準に、目と口は顔を基準に測る。
+          // 検出は位置合わせ前のグリッドで行った結果（faceInfo）を使う。
+          var faceScore = faceInfo.faceFound ? 0.45 * faceGrid + 0.55 * faceInfo.faceHier : 0;
+          var faceSizeRatio = faceInfo.faceSizeRatio;
+          var feats = faceInfo.feats;
+          var eyeL = eyeScore(feats.eyeL, REF.eyeL);
+          var eyeR = eyeScore(feats.eyeR, REF.eyeR);
+          var mouth = mouthScore(feats.mouth, REF.mouth, feats);
+
+          var rawMap = {
+            ears: ears, face: faceScore, eyeL: eyeL, eyeR: eyeR,
+            mouth: mouth, body: body, feet: feet, sil: sil
+          };
+          var order = [
+            ["ears", "耳"], ["face", "顔"], ["eyeL", "左目"], ["eyeR", "右目"],
+            ["mouth", "口"], ["body", "体"], ["feet", "足"], ["sil", "シルエット"]
+          ];
+          var perPart = order.map(function (o) {
+            return { label: o[1], val: Math.round(rawMap[o[0]] * 100) };
+          });
+
+          // 合算：幾何平均で「一番弱いパーツに引っ張られる」形にする。
+          // 各パーツに少し下駄（+0.15）を履かせ、1パーツの測り間違いで崩壊させない。
+          var OFFSET = 0.15;
+          var logSum = 0;
+          order.forEach(function (o) { logSum += Math.log(rawMap[o[0]] + OFFSET); });
+          var geo = Math.exp(logSum / order.length) - OFFSET;
+
+          // 顔と目・口が描けていない絵（紫ベタ塗りなど）は確実に落とす
+          var featureAvg = (eyeL + eyeR + mouth) / 3;
+          var detailGate = Math.max(0, Math.min(1, ((faceScore + featureAvg) / 2) / 0.22));
+
+          // 顔か目・口のどちらかがほぼ無い絵は、中身違いとして上限を付ける
+          var weakest = Math.min(faceScore, featureAvg);
+          var cap = weakest >= 0.35 ? 100 : Math.round(35 + (weakest / 0.35) * 65);
+
+          // 目と口の出来は総合点にもう一段反映させる
+          // （輪郭が合っていても目と口が違う絵は、ここで差がつく）
+          var featureFactor = 0.45 + 0.55 * Math.pow(featureAvg, 0.7);
+          var score = Math.max(0, Math.min(100, cap, Math.round(geo * detailGate * featureFactor * 100)));
+
+          // 全体の形の合い具合（シルエットのIoU）で補正する。
+          // 正解の形をどれだけ覆えているか（カバー率）と、描いた分量のうち
+          // 正解の形の上に置けている割合（正確さ）の調和平均。
+          // 等倍のまま全体に広がるだけの絵（卵型など）は正確さが低く、ここで落ちる。
+          var coverSum = 0, coverCnt = 0, drawnFilled = 0, drawnHit = 0;
+          cells.forEach(function (c) {
+            var ne = c.n ? (c.n - c.counts["."]) / c.n : 0;
+            if (c.target !== ".") { coverSum += Math.min(1, ne / 0.5); coverCnt++; }
+            if (c.col >= TBOX.minC && c.col <= TBOX.maxC && c.row >= TBOX.minR && c.row <= TBOX.maxR && ne >= 0.5) {
+              drawnFilled++;
+              if (c.target !== ".") drawnHit++;
+            }
+          });
+          var cover = coverCnt ? coverSum / coverCnt : 0;
+          var precAll = drawnFilled ? drawnHit / drawnFilled : 0;
+          var iou = (cover + precAll) > 0 ? 2 * cover * precAll / (cover + precAll) : 0;
+          score = Math.round(score * (0.35 + 0.65 * iou));
+
+          var hint = buildHint({
+            face: faceInfo.faceFound, feats: feats, faceScore: faceScore, faceSizeRatio: faceSizeRatio,
+            ears: ears, body: body, feet: feet, sil: sil
+          });
+          return { score: score, perCat: perCat, perPart: perPart, hint: hint };
+        }
+
+        function zeroResult(hint) {
+          return {
+            score: 0,
+            perCat: { P: 0, W: 0, K: 0, ".": 0 },
+            perPart: [
+              { label: "耳", val: 0 }, { label: "顔", val: 0 },
+              { label: "左目", val: 0 }, { label: "右目", val: 0 }, { label: "口", val: 0 },
+              { label: "体", val: 0 }, { label: "足", val: 0 }, { label: "シルエット", val: 0 }
+            ],
+            hint: hint
+          };
+        }
+
+        // 画像データ（RGBA配列）を受け取って判定する
+        function judgeFromImage(img) {
+          var grid = sampleGrid(img);
+          var box = bodyBBox(grid);
+          if (!box) return zeroResult("まだ何も描かれていません。記憶を頼りに描いてみて。");
+          var cells = finalizeCells(alignGrid(grid, box));
+          // 顔と目・口は、位置合わせ前のグリッドで測る（階層座標）。
+          // 等倍の拡大縮小を経ないので、小さく描いても小パーツが潰れない。
+          // 顔の位置は体を基準に、目と口の位置は顔を基準に測るため、
+          // 顔全体のズレで目・口まで一斉に減点されにくい。
+          var face = detectFace(grid, { bx: REF.faceBx, by: REF.faceBy }, box);
+          var feats = analyzeFace(grid, face, REF);
+          var charArea = 0;
+          grid.forEach(function (c) {
+            if ((c.counts.P + c.counts.W + c.counts.K) / c.n >= 0.5) charArea++;
+          });
+          var faceHier = 0, faceSizeRatio = 0;
+          if (face) {
+            var bw = box.maxC - box.minC + 1, bh = box.maxR - box.minR + 1;
+            var bx = (face.cx + 0.5 - box.minC) / bw;
+            var by = (face.cy + 0.5 - box.minR) / bh;
+            var fpos = Math.max(0, 1 - Math.hypot(bx - REF.faceBx, by - REF.faceBy) / 0.30);
+            var relArea = charArea ? face.regionArea / charArea : 0;
+            faceSizeRatio = relArea > 0 ? relArea / REF.faceRelArea : 0;
+            var sizeScore = relArea > 0 ? Math.min(faceSizeRatio, 1 / faceSizeRatio) : 0;
+            faceHier = 0.55 * fpos + 0.45 * sizeScore;
+          }
+          return scoreAligned(cells, {
+            faceFound: !!face, faceHier: faceHier, faceSizeRatio: faceSizeRatio, feats: feats
+          });
+        }
+        /*SCORING-CORE-END*/
+
+        function judge() {
+          return judgeFromImage(ctx.getImageData(0, 0, W, H).data);
+        }
+
+        function tierFor(score) {
+          if (score >= 85) return "本物かと思った。記憶力おばけです。";
+          if (score >= 65) return "かなり あの子！特徴をつかめています。";
+          if (score >= 48) return "だいぶ あの子。あと一歩！";
+          if (score >= 30) return "紫の生き物ではある。";
+          if (score >= 15) return "面影は…あるような、ないような。";
+          return "…誰？ 新キャラが誕生しました。";
+        }
+        var resultEl = document.getElementById("result");
+        var scoreNum = document.getElementById("scoreNum");
+        var scoreTier = document.getElementById("scoreTier");
+        var partBarsEl = document.getElementById("partBars");
+        var shareBtn = document.getElementById("shareBtn");
+
+        function renderBarRows(el, rows) {
+          el.innerHTML = "";
+          rows.forEach(function (r) {
+            var rowEl = document.createElement("div");
+            rowEl.className = "bar-row";
+            var name = document.createElement("span"); name.textContent = r.label;
+            var track = document.createElement("div"); track.className = "bar-track";
+            var fill = document.createElement("div"); fill.className = "bar-fill";
+            fill.style.background = r.color;
+            track.appendChild(fill);
+            var val = document.createElement("span"); val.className = "bar-val";
+            val.textContent = r.val + "%";
+            rowEl.appendChild(name); rowEl.appendChild(track); rowEl.appendChild(val);
+            el.appendChild(rowEl);
+            requestAnimationFrame(function () { fill.style.width = r.val + "%"; });
+          });
+        }
+
+        function renderPartBars(perPart) {
+          var colors = {
+            "耳": "#8b2fe0",
+            "顔": "#b9b0cc",
+            "左目": "#333333",
+            "右目": "#333333",
+            "口": "#333333",
+            "体": "#8b2fe0",
+            "足": "#8b2fe0",
+            "シルエット": "#7fb08a"
+          };
+          renderBarRows(partBarsEl, perPart.map(function (p) {
+            return { label: p.label, val: p.val, color: colors[p.label] || "#8b2fe0" };
+          }));
+        }
+
+        var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        document.getElementById("judgeBtn").addEventListener("click", function () {
+          var res = judge();
+          state.judged = res;
+          resultEl.classList.add("show");
+          scoreTier.textContent = tierFor(res.score);
+          renderPartBars(res.perPart);
+          shareBtn.href = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(shareText(res.score));
+          setShareStatus("");
+          prepareShareImage(res);
+          // スコアのカウントアップ
+          if (reducedMotion) {
+            scoreNum.textContent = res.score;
+          } else {
+            var start = null;
+            function tick(ts) {
+              if (!start) start = ts;
+              var t = Math.min((ts - start) / 800, 1);
+              scoreNum.textContent = Math.round(res.score * (1 - Math.pow(1 - t, 3)));
+              if (t < 1) requestAnimationFrame(tick);
+            }
+            requestAnimationFrame(tick);
+          }
+          resultEl.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "nearest" });
+        });
+
+        document.getElementById("retryBtn").addEventListener("click", function () {
+          pushUndo();
+          ctx.clearRect(0, 0, W, H);
+          resultEl.classList.remove("show");
+          document.getElementById("canvasWrap").scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth" });
+        });
+
+        // ---------- 共有用カード画像 ----------
+        // 絵・大きなパーセント・一致度コメント・パーツ別を1枚に焼き込む。
+        // 判定した時点で生成しておくことで、共有ボタンを押した瞬間に
+        // navigator.share を呼べる（ユーザー操作の有効期限切れを防ぐ）。
+        var sharePreviewWrap = document.getElementById("sharePreviewWrap");
+        var sharePreview = document.getElementById("sharePreview");
+        var shareStatus = document.getElementById("shareStatus");
+
+        function setShareStatus(msg) { shareStatus.textContent = msg; }
+
+        function shareText(score) {
+          return "「話題のあの紫キャラ、描けますか？」おえかき再現度は " + score + "% でした！ #おえかき再現度 #マンデラ効果";
+        }
+
+        function roundRectPath(o, x, y, w, h, r) {
+          o.beginPath();
+          o.moveTo(x + r, y);
+          o.lineTo(x + w - r, y);
+          o.arcTo(x + w, y, x + w, y + r, r);
+          o.lineTo(x + w, y + h - r);
+          o.arcTo(x + w, y + h, x + w - r, y + h, r);
+          o.lineTo(x + r, y + h);
+          o.arcTo(x, y + h, x, y + h - r, r);
+          o.lineTo(x, y + r);
+          o.arcTo(x, y, x + r, y, r);
+          o.closePath();
+        }
+
+        function buildShareCard(res) {
+          var card = document.createElement("canvas");
+          card.width = 1080; card.height = 1520;
+          var o = card.getContext("2d");
+          var FONT = "'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', sans-serif";
+          // 背景
+          o.fillStyle = "#1d1430";
+          o.fillRect(0, 0, 1080, 1520);
+          o.fillStyle = "#7b2fdb";
+          o.fillRect(0, 0, 1080, 10);
+          // 見出し
+          o.fillStyle = "#f0ebfa";
+          o.font = "800 44px " + FONT;
+          o.fillText("『紫のうさぎ』おえかき再現度ゲーム", 56, 86);
+          o.fillStyle = "#b3a9cc";
+          o.font = "700 29px " + FONT;
+          o.fillText("お題：話題のあの紫キャラ、描けますか？", 56, 132);
+          // 絵（紙）
+          roundRectPath(o, 56, 164, 968, 1044, 30);
+          o.fillStyle = "#fffef9";
+          o.fill();
+          o.drawImage(canvas, 140, 186, 800, 1000);
+          // スコア
+          o.fillStyle = "#a76bf0";
+          o.font = "800 150px " + FONT;
+          var scoreStr = String(res.score);
+          o.fillText(scoreStr, 56, 1368);
+          var sw = o.measureText(scoreStr).width;
+          o.font = "800 52px " + FONT;
+          o.fillText("% 再現", 56 + sw + 20, 1368);
+          // 再現度コメント
+          o.fillStyle = "#f0ebfa";
+          o.font = "800 40px " + FONT;
+          o.fillText(tierFor(res.score), 56, 1432);
+          // パーツ別（1行に圧縮）
+          o.fillStyle = "#b3a9cc";
+          o.font = "700 28px " + FONT;
+          var partsLine = res.perPart.map(function (p) { return p.label + " " + p.val + "%"; }).join(" ・ ");
+          var partsW = o.measureText(partsLine).width;
+          if (partsW > 968) {
+            o.font = "700 " + Math.max(20, Math.floor(28 * 968 / partsW)) + "px " + FONT;
+          }
+          o.fillText(partsLine, 56, 1480);
+          return card;
+        }
+
+        function prepareShareImage(res) {
+          state.shareBlob = null;
+          state.shareFile = null;
+          state.shareDataUrl = null;
+          sharePreviewWrap.hidden = true;
+          var make = function () {
+            var card = buildShareCard(res);
+            // アプリ内ブラウザではダウンロードが無言で失敗することがあるため、
+            // 長押し保存できるようデータURL版も用意しておく
+            try { state.shareDataUrl = card.toDataURL("image/png"); } catch (err) { state.shareDataUrl = null; }
+            if (state.judged && state.judged.score === res.score && state.shareDataUrl) {
+              sharePreview.src = state.shareDataUrl;
+              sharePreviewWrap.hidden = false;
+            }
+            card.toBlob(function (blob) {
+              if (!blob || !state.judged || state.judged.score !== res.score) return;
+              state.shareBlob = blob;
+              try {
+                state.shareFile = new File([blob], "oekaki-match.png", { type: "image/png" });
+              } catch (err) { state.shareFile = null; }
+              if (state.shareUrl) URL.revokeObjectURL(state.shareUrl);
+              state.shareUrl = URL.createObjectURL(blob);
+              if (!state.shareDataUrl) {
+                sharePreview.src = state.shareUrl;
+                sharePreviewWrap.hidden = false;
+              }
+            }, "image/png");
+          };
+          // Webフォントが読み込めてから焼くと、カードの文字がページと同じ書体になる
+          if (document.fonts && document.fonts.ready) {
+            var done = false;
+            document.fonts.ready.then(function () { if (!done) { done = true; make(); } });
+            setTimeout(function () { if (!done) { done = true; make(); } }, 600);
+          } else {
+            make();
+          }
+        }
+
+        function downloadShareBlob() {
+          if (!state.shareBlob) return false;
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(state.shareBlob);
+          a.download = "oekaki-match.png";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+          return true;
+        }
+
+        // 共有シートで画像ファイルを渡す。成功したら true。
+        // 失敗・非対応のときは false を返し、呼び出し側が保存モーダルに落とす。
+        function tryShareFile() {
+          if (!state.judged || !state.shareFile || !navigator.canShare || !navigator.share) return false;
+          var data = { files: [state.shareFile], text: shareText(state.judged.score) };
+          if (!navigator.canShare(data)) return false;
+          navigator.share(data).then(function () {
+            setShareStatus("");
+          }).catch(function (err) {
+            if (err && err.name === "AbortError") return; // キャンセルは何もしない
+            openSaveModal();
+          });
+          return true;
+        }
+
+        // 保存モーダル：画像を大きく表示し、長押しで写真に保存してもらう。
+        // アプリ内ブラウザでは <a download> が無言で失敗するため、こちらを正規の保存導線にする。
+        var saveModal = document.getElementById("saveModal");
+        var saveModalImg = document.getElementById("saveModalImg");
+        function openSaveModal() {
+          var src = state.shareDataUrl || state.shareUrl;
+          if (!src) {
+            setShareStatus("画像の準備中です。少し待ってからもう一度押してください。");
+            return;
+          }
+          saveModalImg.src = src;
+          saveModal.hidden = false;
+        }
+        function closeSaveModal() { saveModal.hidden = true; }
+        document.getElementById("saveModalClose").addEventListener("click", closeSaveModal);
+        saveModal.addEventListener("click", function (e) {
+          if (e.target === saveModal) closeSaveModal();
+        });
+        document.getElementById("saveModalShare").addEventListener("click", function () {
+          if (!tryShareFile() && downloadShareBlob()) closeSaveModal();
+        });
+        document.getElementById("saveModalDl").addEventListener("click", function () {
+          if (downloadShareBlob()) {
+            setShareStatus("画像を保存しました。そのまま投稿に添付できます。");
+            closeSaveModal();
+          }
+        });
+        sharePreview.addEventListener("click", openSaveModal);
+
+        document.getElementById("shareImgBtn").addEventListener("click", function () {
+          if (!state.judged) return;
+          if (!tryShareFile()) openSaveModal();
+        });
+
+        document.getElementById("saveBtn").addEventListener("click", function () {
+          if (!state.judged) return;
+          openSaveModal();
+        });
+      })();
+    </script>
+  </body>
+</html>
