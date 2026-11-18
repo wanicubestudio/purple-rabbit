@@ -1342,7 +1342,7 @@
               var cost = Math.hypot(k.rx - refEye.x, k.ry - refEye.y);
               if (cost < bestCost) { bestCost = cost; best = idx; }
             });
-            if (best >= 0 && bestCost <= 0.34) {
+            if (best >= 0 && bestCost <= 0.45) {
               used[best] = true;
               var d = desc(comps[best]);
               d.cost = bestCost;
@@ -1398,13 +1398,14 @@
           };
         })();
 
-        // 目：位置が少しズレたら小さな減点、大きさの比でも減点。
+        // 目：「左右に点が2つある」ことを主採点にする。公式の目も小さい点なので、
+        // 位置の許容は広く取り、大きさの違いは小さな減点に留める。
         // 見つからなければその目の点は入らない。
         function eyeScore(found, refEye) {
           if (!found || !refEye) return 0;
-          var pos = Math.max(0, 1 - found.cost / 0.42);
+          var pos = Math.max(0, 1 - found.cost / 0.65);
           var ratio = Math.min(found.a / refEye.a, refEye.a / found.a);
-          return 0.55 * pos + 0.45 * Math.pow(ratio, 1.5);
+          return 0.85 * pos + 0.15 * Math.pow(ratio, 0.7);
         }
 
         // 口：目より下にあること、横幅と開き具合（縦幅）が近いことで加点。
@@ -1514,9 +1515,14 @@
           // 合算：幾何平均で「一番弱いパーツに引っ張られる」形にする。
           // 各パーツに少し下駄（+0.15）を履かせ、1パーツの測り間違いで崩壊させない。
           var OFFSET = 0.15;
-          var logSum = 0;
-          order.forEach(function (o) { logSum += Math.log(rawMap[o[0]] + OFFSET); });
-          var geo = Math.exp(logSum / order.length) - OFFSET;
+          var logSum = 0, wSum = 0;
+          order.forEach(function (o) {
+            // 目は小さいパーツなので、幾何平均で全体を引っ張る重みは半分にする
+            var wgt = (o[0] === "eyeL" || o[0] === "eyeR") ? 0.5 : 1;
+            logSum += wgt * Math.log(rawMap[o[0]] + OFFSET);
+            wSum += wgt;
+          });
+          var geo = Math.exp(logSum / wSum) - OFFSET;
 
           // 顔と目・口が描けていない絵（紫ベタ塗りなど）は確実に落とす
           var featureAvg = (eyeL + eyeR + mouth) / 3;
@@ -1593,7 +1599,8 @@
             var fpos = Math.max(0, 1 - Math.hypot(bx - REF.faceBx, by - REF.faceBy) / 0.30);
             var relArea = charArea ? face.regionArea / charArea : 0;
             faceSizeRatio = relArea > 0 ? relArea / REF.faceRelArea : 0;
-            var sizeScore = relArea > 0 ? Math.min(faceSizeRatio, 1 / faceSizeRatio) : 0;
+            // 顔の大きさの比率は許容を少し広げる（比の近さを緩やかに評価する）
+            var sizeScore = relArea > 0 ? Math.pow(Math.min(faceSizeRatio, 1 / faceSizeRatio), 0.6) : 0;
             faceHier = 0.55 * fpos + 0.45 * sizeScore;
           }
           return scoreAligned(cells, {
